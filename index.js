@@ -6,15 +6,14 @@ const PORT = 3000;
 // Middleware to read JSON data sent in request body
 app.use(express.json());
 
-// Custom global middleware
-app.use((req, res, next) => {
-    console.log(new Date().toISOString());
+// Global error-handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
 
-    console.log("Request method:", req.method);
-    console.log("Request URL:", req.url);
-
-    next();
-})
+    res.status(500).json({
+        error: err.message
+    });
+});
 
 // Home route
 app.get("/", (req, res) => {
@@ -22,21 +21,21 @@ app.get("/", (req, res) => {
 });
 
 // Middleware only for /api/status
-function statusChecker(req, res, next){
+function statusChecker(req, res, next) {
     console.log("This middleware runs only for /api/status");
 
     next();
 }
 
-function blockTester(req, res, next){
+function blockTester(req, res, next) {
     res.status(403).json({
         message: "Request blocked by middleware"
     });
 }
 
-function secondChecker(req, res, next){
+function secondChecker(req, res, next) {
     console.log("Second Middleware");
-    
+
     next();
 }
 
@@ -51,7 +50,7 @@ app.get("/api/status", statusChecker, secondChecker, (req, res) => {
 });
 
 // Middleware only for /api/risk
-function riskChecker(req, res, next){
+function riskChecker(req, res, next) {
     console.log("Risk route middleware is running...");
 
     next();
@@ -79,16 +78,78 @@ function sensorChecker(req, res, next) {
 
 // Add new sensor reading
 app.post("/api/sensor", sensorChecker, (req, res) => {
+    const deviceId = req.body.deviceId;
+    const soilMoisture = req.body.soilMoisture;
+    const rainfall = req.body.rainfall;
+
+    // Task 1: Check missing data
+    if (!deviceId || soilMoisture === undefined || rainfall === undefined) {
+        return res.status(400).json({
+            error: "deviceId, soilMoisture, and rainfall are required"
+        });
+    }
+
+    // Check data types
+    if (
+        typeof soilMoisture !== "number" ||
+        typeof rainfall !== "number"
+    ) {
+        return res.status(400).json({
+            error: "soilMoisture and rainfall must be numbers"
+        });
+    }
+
     res.json({
-        message: "New sensor reading received"
+        message: "New sensor reading received",
+        data: {
+            deviceId: deviceId,
+            soilMoisture: soilMoisture,
+            rainfall: rainfall
+        }
     });
 });
+
+app.post("/api/device", (req, res) => {
+    const deviceId = req.body.deviceId;
+    const location = req.body.location;
+    const status = req.body.status;
+
+    // Missing Value
+    if(!deviceId || location === undefined || status === undefined){
+        return res.status(400).json({
+            error: "DeviceID, Location and STatus are required"
+        });
+    }
+
+    res.status(201).json({
+        message: "Device created successfully",
+        device: {
+            deviceId: deviceId,
+            location: location,
+            status: status
+        }
+    })
+})
 
 // Check landslide risk using data sent by client
 app.post("/api/check-risk", (req, res) => {
     const location = req.body.location;
     const soilMoisture = req.body.soilMoisture;
     const rainfall = req.body.rainfall;
+
+    // Check missing data
+    if (!location || soilMoisture === undefined || rainfall === undefined) {
+        return res.status(400).json({
+            error: "Location, soilMoisture, and rainfall are required"
+        });
+    }
+
+    // Check invalid data types
+    if (typeof soilMoisture !== "number" || typeof rainfall !== "number") {
+        return res.status(400).json({
+            error: "soilMoisture and rainfall must be numbers"
+        });
+    }
 
     let risk;
     let message;
@@ -113,6 +174,13 @@ app.post("/api/check-risk", (req, res) => {
     });
 });
 
+// Test route for error-handling middleware
+app.get("/api/error-test", (req, res, next) => {
+    const error = new Error("This is a test error");
+
+    next(error);
+});
+
 // Fully update a device
 app.put("/api/device/:id", (req, res) => {
     res.json({
@@ -131,6 +199,29 @@ app.patch("/api/device/:id", (req, res) => {
 app.delete("/api/device/:id", (req, res) => {
     res.json({
         message: `Device ${req.params.id} deleted`
+    });
+});
+
+// Server error test route
+app.get("/api/server-error", (req, res, next) => {
+    const error = new Error("Server error test");
+
+    next(error);
+});
+
+// 404 handler for unknown routes
+app.use((req, res) => {
+    res.status(404).json({
+        error: `Cannot ${req.method} ${req.url}`
+    });
+});
+
+// Global error-handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+
+    res.status(500).json({
+        error: "Something went wrong on the server"
     });
 });
 
