@@ -6,13 +6,42 @@ const PORT = 3000;
 // Middleware to read JSON data sent in request body
 app.use(express.json());
 
+// Custom global middleware
+app.use((req, res, next) => {
+    console.log(new Date().toISOString());
+
+    console.log("Request method:", req.method);
+    console.log("Request URL:", req.url);
+
+    next();
+})
+
 // Home route
 app.get("/", (req, res) => {
     res.send("Welcome to SafeMarga API");
 });
 
+// Middleware only for /api/status
+function statusChecker(req, res, next){
+    console.log("This middleware runs only for /api/status");
+
+    next();
+}
+
+function blockTester(req, res, next){
+    res.status(403).json({
+        message: "Request blocked by middleware"
+    });
+}
+
+function secondChecker(req, res, next){
+    console.log("Second Middleware");
+    
+    next();
+}
+
 // Check API status
-app.get("/api/status", (req, res) => {
+app.get("/api/status", statusChecker, secondChecker, (req, res) => {
     const status = {
         status: "ok",
         server: "SafeMarga"
@@ -21,8 +50,15 @@ app.get("/api/status", (req, res) => {
     res.json(status);
 });
 
+// Middleware only for /api/risk
+function riskChecker(req, res, next){
+    console.log("Risk route middleware is running...");
+
+    next();
+}
+
 // Get current risk data
-app.get("/api/risk", (req, res) => {
+app.get("/api/risk", riskChecker, (req, res) => {
     const riskData = {
         location: "Kavre",
         soilMoisture: 42,
@@ -34,8 +70,15 @@ app.get("/api/risk", (req, res) => {
     res.json(riskData);
 });
 
+// Middleware only for /api/sensor
+function sensorChecker(req, res, next) {
+    console.log("Sensor middleware is running...");
+
+    next();
+}
+
 // Add new sensor reading
-app.post("/api/sensor", (req, res) => {
+app.post("/api/sensor", sensorChecker, (req, res) => {
     res.json({
         message: "New sensor reading received"
     });
